@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BudgetBoss - Personal Finance Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* General Body Styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column; /* Arrange items vertically */
+            min-height: 100vh; /* Full viewport height */
+            background-color: white; /* White background for the entire page */
+            color: #333;
+            overflow-x: hidden; /* Prevent horizontal scroll due to animations */
+        }
+
+        /* Modal Overlay Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure it's on top of everything */
+            transition: opacity 0.3s ease;
+            pointer-events: none; /* Allows clicks to pass through when hidden */
+            opacity: 0;
+        }
+
+        /* Modal active state */
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            position: relative;
+            transform: scale(0.8); /* Start slightly smaller for pop effect */
+            opacity: 0; /* Start hidden for pop effect */
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            max-width: 90%;
+            min-width: 300px;
+        }
+
+        /* Modal active state */
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        /* Close button for modal */
+        .modal-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #555;
+        }
+        .modal-close-btn:hover {
+            color: #000;
+        }
+
+
+        /* Header Section for Welcome Message (Hidden when modal is active) */
+        .header {
+            text-align: center;
+            padding: 20px;
+            background-color: white; /* Match body background */
+            border-bottom: 1px solid #eee; /* Subtle separator */
+            min-height: 80px; /* Ensure space for animation */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* Initially hidden when modal is shown */
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .welcome-message-container {
+            font-size: 3em;
+            font-weight: bold;
+            display: inline-block; /* Allows span to be next to each other */
+            margin: 0;
+            white-space: nowrap; /* Prevent wrapping during animation */
+            overflow: hidden; /* Hide overflowing text before it appears */
+        }
+
+        .welcome-to {
+            color: lightcoral; /* Light red color */
+            font-style: italic;
+        }
+
+        .budget-boss {
+            color: navy; /* Navy blue color */
+            font-weight: normal; /* Override bold from container if needed */
+        }
+
+        .message-char {
+            opacity: 0; /* Hidden by default for animation */
+            transition: opacity 0.1s ease-in-out; /* Smooth fade-in for each char */
+        }
+
+        /* Main Content Area */
+        .main-content {
+            display: flex; /* Use flexbox for side-by-side panels */
+            flex-grow: 1; /* Allows this section to take up available vertical space */
+            padding: 20px;
+            gap: 20px; /* Space between columns */
+            /* Initially hidden when modal is shown */
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Panel Styling Base */
+        .panel {
+            background-color: #f9f9f9; /* Light grey background for panel */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            flex: 1; /* Default flex for side panels */
+            display: flex;
+            flex-direction: column; /* Stack content vertically within panels */
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex; /* For icon next to heading */
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Left Panel - User Details Specifics */
+        .left-panel form label {
+            display: block; /* Each label on a new line */
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .left-panel form input[type="text"],
+        .left-panel form input[type="number"] {
+            width: calc(100% - 22px); /* Full width minus padding and border */
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box; /* Include padding/border in width */
+        }
+
+        .left-panel form button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+
+        .left-panel form button:hover {
+            background-color: #0056b3;
+        }
+
+        #userDetailsDisplay {
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+
+        .display-item {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .display-item strong {
+            display: inline-block;
+            width: 150px; /* Adjusted fixed width for labels */
+        }
+
+        /* Middle Section - Finance Tips Specifics */
+        .middle-section {
+            flex: 2; /* Takes up 2 parts of available space, larger than side panels */
+            padding-bottom: 0; /* Adjust padding for side heading */
+        }
+
+        .finance-tips-heading {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em; /* Adjusted font size for side heading */
+            padding-left: 20px;
+            border-left: 5px solid aquamarine;
+        }
+
+        .tip-list {
+            list-style-type: none; /* Remove default bullet points */
+            padding-left: 0;
+            margin-top: 0;
+            overflow-y: auto; /* Allow scrolling for tips if needed */
+            flex-grow: 1; /* Allow tip list to take available space */
+        }
+
+        .tip-list li {
+            margin-bottom: 15px;
+            line-height: 1.5;
+            display: flex; /* For icon next to text */
+            align-items: flex-start;
+            font-size: 1.05em;
+        }
+
+        .tip-list li i {
+            color: gold; /* Yellow bulb icon */
+            margin-right: 10px;
+            font-size: 1.2em;
+            flex-shrink: 0; /* Prevent icon from shrinking */
+            padding-top: 3px; /* Align icon better with text */
+        }
+
+        /* Right Panel - Chatbot BuxBot Specifics */
+        .right-panel {
+            flex: 0.8; /* Reduced size, takes up less space than left panel (which is 1) */
+        }
+
+        .buxbot-heading {
+            color: #333; /* Heading color */
+        }
+
+        .buxbot-heading i.fa-piggy-bank {
+            color: lightpink; /* Piggy bank icon color */
+        }
+
+        .buxbot-heading span {
+            color: #cc99ff; /* Light violet for BuxBot name */
+        }
+
+        .chatbot-container {
+            height: 400px; /* Example height for chatbot area */
+            border: 1px solid #ddd;
+            background-color: white;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column; /* For message area and input area */
+            overflow: hidden; /* Hide internal scrollbars for now */
+            flex-grow: 1; /* Allow it to fill available space in panel */
+        }
+
+        .chatbot-welcome-text {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-style: italic;
+            margin: auto; /* Center vertically and horizontally */
+            line-height: 1.5;
+        }
+
+        .chatbot-messages {
+            flex-grow: 1; /* Takes up most space */
+            padding: 15px;
+            overflow-y: auto; /* Scroll for messages */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Messages stick to bottom */
+            /* Initial message visibility */
+            display: none; /* Hide messages initially until first interaction */
+        }
+
+        .chatbot-message {
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            max-width: 80%;
+            align-self: flex-start; /* Default for bot messages */
+            word-wrap: break-word; /* Ensure text wraps */
+        }
+
+        .user-message {
+            background-color: #d1e7dd; /* Lighter green for user messages */
+            align-self: flex-end; /* Align user messages to the right */
+        }
+
+        .chatbot-input-area {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #eee;
+            gap: 5px;
+            background-color: #f0f0f0;
+        }
+
+        .chatbot-input-area input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        .chatbot-input-area button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%; /* Make it round */
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: background-color 0.3s ease;
+        }
+
+        .chatbot-input-area button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column; /* Stack panels vertically on smaller screens */
+                padding: 10px;
+            }
+            .panel {
+                flex: none; /* Remove flex sizing */
+                width: auto; /* Allow panels to take full width */
+            }
+            .welcome-message-container {
+                font-size: 2em; /* Smaller font for welcome message on small screens */
+                white-space: normal; /* Allow wrapping on small screens */
+            }
+            .middle-section {
+                padding-bottom: 20px; /* Reset padding */
+            }
+            .finance-tips-heading {
+                padding-left: 0;
+                text-align: center;
+                border-left: none;
+            }
+            .right-panel {
+                flex: 1; /* Reset flex for smaller screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Welcome Modal -->
+    <div class="modal-overlay" id="welcomeModal">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closeModalBtn">&times;</button>
+            <h1 class="welcome-message-container" id="modalWelcomeMessage">
+                </h1>
+        </div>
+    </div>
+
+    <!-- General Message/Alert Modal -->
+    <div class="modal-overlay" id="messageModal">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closeMessageModalBtn">&times;</button>
+            <p id="messageModalText"></p>
+        </div>
+    </div>
+
+    <div class="header" id="mainHeader">
+        <h1 class="welcome-message-container">
+            <span class="welcome-to">Welcome to</span> <span class="budget-boss">BudgetBoss</span>
+        </h1>
+    </div>
+
+    <div class="main-content" id="mainContentArea">
+        <div class="panel left-panel">
+            <h2>Enter Your Financial Details</h2>
+            <form id="userDetailsForm">
+                <label for="userName">Name:</label>
+                <input type="text" id="userName" placeholder="Your Name" required><br>
+
+                <label for="monthlyIncome">Monthly Income (₹):</label>
+                <input type="number" id="monthlyIncome" placeholder="e.g., 35000" min="0" required><br>
+
+                <label for="fixedExpenses">Fixed Monthly Expenses (₹):</label>
+                <input type="number" id="fixedExpenses" placeholder="e.g., 15000 (Rent, Bills)" min="0" required><br>
+
+                <label for="currentSavings">Current Savings (₹):</label>
+                <input type="number" id="currentSavings" placeholder="e.g., 120000" min="0" required><br>
+
+                <label for="investments">Investments (₹):</label>
+                <input type="number" id="investments" placeholder="e.g., 50000 (Mutual Funds, Stocks)" min="0" required><br>
+
+                <label for="taxDeductions">Tax Deductions (₹):</label>
+                <input type="number" id="taxDeductions" placeholder="e.g., 5000 (PPF, ELSS)" min="0" required><br>
+
+                <button type="submit">Save Details</button>
+            </form>
+
+            <div id="userDetailsDisplay">
+                <h3>Your Saved Details:</h3>
+                <div class="display-item"><strong>Name:</strong> <span id="displayName">N/A</span></div>
+                <div class="display-item"><strong>Monthly Income:</strong> ₹<span id="displayIncome">N/A</span></div>
+                <div class="display-item"><strong>Fixed Expenses:</strong> ₹<span id="displayFixedExpenses">N/A</span></div>
+                <div class="display-item"><strong>Current Savings:</strong> ₹<span id="displayCurrentSavings">N/A</span></div>
+                <div class="display-item"><strong>Investments:</strong> ₹<span id="displayInvestments">N/A</span></div>
+                <div class="display-item"><strong>Tax Deductions:</strong> ₹<span id="displayTaxDeductions">N/A</span></div>
+            </div>
+        </div>
+
+        <div class="panel middle-section">
+            <h2 class="finance-tips-heading">Financial Tips</h2>
+            <ul class="tip-list">
+                <li><i class="fas fa-lightbulb"></i> Track your income and expenses diligently to understand where every rupee goes.</li>
+                <li><i class="fas fa-lightbulb"></i> Save at least 3-6 months' worth of living expenses in an easily accessible, liquid account.</li>
+                <li><i class="fas fa-lightbulb"></i> Focus on paying off high-interest debts (like credit cards) first to save on interest costs.</li>
+                <li><i class="fas fa-lightbulb"></i> Even small, consistent investments can grow significantly over time due to the power of compounding.</li>
+                <li><i class="fas fa-lightbulb"></i> Set up automatic transfers from your checking to savings/investment accounts each payday.</li>
+                <li><i class="fas fa-lightbulb"></i> Revisit your budget and goals at least once a year.</li>
+                <li><i class="fas fa-lightbulb"></i> Spread investments across different asset classes.</li>
+                <li><i class="fas fa-lightbulb"></i> Learn about tax-saving instruments and deductions to maximize your take-home pay.</li>
+                <li><i class="fas fa-lightbulb"></i> Continuously learn about personal finance, economic trends, and investment opportunities.</li>
+            </ul>
+        </div>
+
+        <div class="panel right-panel">
+            <h2 class="buxbot-heading"><span>BuxBot</span> <i class="fas fa-piggy-bank"></i></h2>
+            <div class="chatbot-container">
+                <div class="chatbot-welcome-text" id="chatbotInitialText">
+                    <p>Hello! I'm BuxBot, your financial assistant.</p>
+                    <p>Ask your finance questions here!</p>
+                </div>
+                <div class="chatbot-messages" id="chatbotMessages">
+                    </div>
+                <div class="chatbot-input-area">
+                    <button id="audioInputBtn" title="Voice Input"><i class="fas fa-microphone"></i></button>
+                    <input type="text" id="chatInput" placeholder="Type your message...">
+                    <button id="sendChatBtn" title="Send Message"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Modal Logic ---
+            const welcomeModal = document.getElementById('welcomeModal');
+            const modalWelcomeMessageElement = document.getElementById('modalWelcomeMessage');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const mainHeader = document.getElementById('mainHeader');
+            const mainContentArea = document.getElementById('mainContentArea');
+            const messageModal = document.getElementById('messageModal');
+            const messageModalText = document.getElementById('messageModalText');
+            const closeMessageModalBtn = document.getElementById('closeMessageModalBtn');
+
+            function showMessageModal(message) {
+                messageModalText.textContent = message;
+                messageModal.classList.add('active');
+            }
+
+            function closeMessageModal() {
+                messageModal.classList.remove('active');
+            }
+
+            closeMessageModalBtn.addEventListener('click', closeMessageModal);
+
+
+            // --- Welcome Message Logic ---
+            const fullMessage = "Welcome to BudgetBoss";
+            const parts = [
+                { text: "Welcome to", class: "welcome-to" },
+                { text: " BudgetBoss", class: "budget-boss" }
+            ];
+
+            let charIndex = 0;
+            let messageChars; // Will be populated after initial setup
+
+            function setupAndAnimateModalMessage() {
+                let htmlContent = '';
+                parts.forEach(part => {
+                    htmlContent += `<span class="${part.class}">`;
+                    for (let i = 0; i < part.text.length; i++) {
+                        htmlContent += `<span class="message-char">${part.text[i]}</span>`;
+                    }
+                    htmlContent += `</span>`;
+                });
+
+                modalWelcomeMessageElement.innerHTML = htmlContent;
+                messageChars = modalWelcomeMessageElement.querySelectorAll('.message-char');
+
+                charIndex = 0; // Reset for animation
+                typeWriter(); // Start typing animation on the modal
+            }
+
+            function typeWriter() {
+                if (charIndex < messageChars.length) {
+                    messageChars[charIndex].style.opacity = 1;
+                    charIndex++;
+                    setTimeout(typeWriter, 100);
+                }
+            }
+
+            // Function to close the welcome modal and reveal main content
+            function closeWelcomeModal() {
+                welcomeModal.classList.remove('active');
+                setTimeout(() => { // Give time for transition before hiding completely
+                    welcomeModal.style.display = 'none';
+                    document.body.style.overflowY = 'auto'; // Re-enable scrolling
+                    mainHeader.style.opacity = 1; // Fade in main header
+                    mainContentArea.style.opacity = 1; // Fade in main content
+                }, 300); // Match CSS transition duration
+            }
+
+            // Show welcome modal and start animation when page loads
+            welcomeModal.classList.add('active'); // Activate the modal's styling
+            setupAndAnimateModalMessage();
+            document.body.style.overflowY = 'hidden'; // Prevent scrolling of background content
+
+            // Set timeout for automatic disappearance after 2 seconds
+            setTimeout(closeWelcomeModal, 2000); // 2000 milliseconds = 2 seconds
+
+            // Handle closing the modal via button click
+            closeModalBtn.addEventListener('click', closeWelcomeModal);
+
+
+            // --- User Details Logic ---
+            const form = document.getElementById('userDetailsForm');
+            const displayName = document.getElementById('displayName');
+            const displayIncome = document.getElementById('displayIncome');
+            const displayFixedExpenses = document.getElementById('displayFixedExpenses');
+            const displayCurrentSavings = document.getElementById('displayCurrentSavings');
+            const displayInvestments = document.getElementById('displayInvestments');
+            const displayTaxDeductions = document.getElementById('displayTaxDeductions');
+
+            function updateDisplay(name, income, fixedExpenses, currentSavings, investments, taxDeductions) {
+                // Only set name if it's provided, otherwise keep it N/A
+                displayName.textContent = name || 'N/A'; // Important change here
+                displayIncome.textContent = income;
+                displayFixedExpenses.textContent = fixedExpenses;
+                displayCurrentSavings.textContent = currentSavings;
+                displayInvestments.textContent = investments;
+                displayTaxDeductions.textContent = taxDeductions;
+            }
+
+            // Try to load saved details from localStorage (if available)
+            // Initialize with default N/A for name if not found
+            const savedName = localStorage.getItem('userName');
+            const savedIncome = localStorage.getItem('monthlyIncome');
+            const savedFixedExpenses = localStorage.getItem('fixedExpenses');
+            const savedCurrentSavings = localStorage.getItem('currentSavings');
+            const savedInvestments = localStorage.getItem('investments');
+            const savedTaxDeductions = localStorage.getItem('taxDeductions');
+
+            // Populate display with saved data, or 'N/A' if not present
+            updateDisplay(
+                savedName,
+                savedIncome || 'N/A', // Set N/A if income not saved
+                savedFixedExpenses || 'N/A', // Set N/A if fixed expenses not saved
+                savedCurrentSavings || 'N/A', // Set N/A if current savings not saved
+                savedInvestments || 'N/A', // Set N/A if investments not saved
+                savedTaxDeductions || 'N/A' // Set N/A if tax deductions not saved
+            );
+
+            // Populate form fields with saved data, if available
+            document.getElementById('userName').value = savedName || ''; // Keep input blank if no name
+            document.getElementById('monthlyIncome').value = savedIncome || '';
+            document.getElementById('fixedExpenses').value = savedFixedExpenses || '';
+            document.getElementById('currentSavings').value = savedCurrentSavings || '';
+            document.getElementById('investments').value = savedInvestments || '';
+            document.getElementById('taxDeductions').value = savedTaxDeductions || '';
+
+
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const name = document.getElementById('userName').value.trim(); // Trim whitespace
+                const income = document.getElementById('monthlyIncome').value;
+                const fixedExpenses = document.getElementById('fixedExpenses').value;
+                const currentSavings = document.getElementById('currentSavings').value;
+                const investments = document.getElementById('investments').value;
+                const taxDeductions = document.getElementById('taxDeductions').value;
+
+                updateDisplay(name, income, fixedExpenses, currentSavings, investments, taxDeductions);
+
+                // Only save name if it's not empty, otherwise remove from local storage
+                if (name) {
+                    localStorage.setItem('userName', name);
+                } else {
+                    localStorage.removeItem('userName');
+                }
+                localStorage.setItem('monthlyIncome', income);
+                localStorage.setItem('fixedExpenses', fixedExpenses);
+                localStorage.setItem('currentSavings', currentSavings);
+                localStorage.setItem('investments', investments);
+                localStorage.setItem('taxDeductions', taxDeductions);
+
+                showMessageModal('Your financial details have been saved!');
+            });
+
+            // --- Chatbot Logic ---
+            const chatInput = document.getElementById('chatInput');
+            const sendChatBtn = document.getElementById('sendChatBtn');
+            const audioInputBtn = document.getElementById('audioInputBtn');
+            const chatbotMessages = document.getElementById('chatbotMessages');
+            const chatbotInitialText = document.getElementById('chatbotInitialText');
+            let initialMessageDisplayed = false;
+
+            function addMessage(text, isUser) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('chatbot-message');
+                if (isUser) {
+                    messageDiv.classList.add('user-message');
+                }
+                messageDiv.textContent = text;
+                chatbotMessages.appendChild(messageDiv);
+                chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+            }
+
+            function handleChatInteraction(messageText) {
+                if (!initialMessageDisplayed) {
+                    chatbotInitialText.style.display = 'none';
+                    chatbotMessages.style.display = 'flex';
+                    addMessage("Hello! I'm BuxBot, your financial assistant. How can I help you today?", false);
+                    initialMessageDisplayed = true;
+                }
+
+                setTimeout(() => {
+                    let botResponse = "I'm not sure how to respond to that yet, but I'm learning!";
+                    const lowerCaseMessage = messageText.toLowerCase();
+
+                    // Logic for suggestions based on user details
+                    if (lowerCaseMessage.includes("suggestions") || lowerCaseMessage.includes("advice")) {
+                        const incomeValue = parseFloat(displayIncome.textContent) || 0;
+                        const fixedExpensesValue = parseFloat(displayFixedExpenses.textContent) || 0;
+                        const investmentsValue = parseFloat(displayInvestments.textContent) || 0;
+                        const taxDeductionsValue = parseFloat(displayTaxDeductions.textContent) || 0;
+                        const currentSavingsValue = parseFloat(displayCurrentSavings.textContent) || 0;
+
+                        const totalExpenses = fixedExpensesValue + investmentsValue + taxDeductionsValue;
+
+                        if (incomeValue === 0 && totalExpenses === 0 && currentSavingsValue === 0) {
+                            botResponse = "Please fill in your financial details on the left side first to get personalized suggestions!";
+                        } else if (incomeValue > totalExpenses) {
+                            botResponse = "try to save money you are spending to much";
+                        } else if (incomeValue < totalExpenses) {
+                            botResponse = "you are good at managing money";
+                        } else if (currentSavingsValue > 0) {
+                            botResponse = "you are good at savings";
+                        }
+                    }
+                    // End new logic for suggestions
+
+                    if (lowerCaseMessage.includes("how can i save money") || lowerCaseMessage.includes("how to save money")) {
+    botResponse = "Try the 50/30/20 rule! Put 50% of income toward needs, 30% for wants like trips, and 20% into savings.";
+} else if (lowerCaseMessage.includes("how to follow budget") || lowerCaseMessage.includes("how to follow")) {
+    botResponse = "Use budgeting apps or spreadsheets to track your income and expenses. Stick to your budget categories.";
+} else if (lowerCaseMessage.includes("investing") || lowerCaseMessage.includes("how to invest")) {
+    botResponse = "Start with mutual funds or index funds for diversification. Consider SIPs for regular investments.";
+} else if (lowerCaseMessage.includes("investments")) {
+    botResponse = `Your investments are ₹${displayInvestments.textContent}. Keep an eye on your portfolio!`;
+} else if (lowerCaseMessage.includes("budget")) {
+    botResponse = `Based on your income of ₹${displayIncome.textContent} and expenses of ₹${displayFixedExpenses.textContent}, you should aim to save at least 20% of your income.`;
+} else if (lowerCaseMessage.includes("tax")) {
+    botResponse = `Your reported tax deductions are ₹${displayTaxDeductions.textContent}. Good to save on taxes!`;
+} else if (lowerCaseMessage.includes("savings")) {
+    const savingsVal = parseInt(displayCurrentSavings.textContent.replace(/[^\d]/g, '')) || 0;
+    botResponse = savingsVal < 50000
+        ? "Consider building your savings to at least ₹50,000 for emergencies."
+        : "Excellent! You have a solid savings cushion.";
+} else if (lowerCaseMessage.includes("expenses")) {
+    const incomeVal = parseInt(displayIncome.textContent.replace(/[^\d]/g, '')) || 0;
+    const expensesVal = parseInt(displayFixedExpenses.textContent.replace(/[^\d]/g, '')) || 0;
+    botResponse = expensesVal > incomeVal * 0.5
+        ? "Your fixed expenses are quite high. Consider reviewing them."
+        : "Your expenses seem manageable. Keep tracking them!";
+} else if (lowerCaseMessage.includes("income")) {
+    const incomeVal = parseInt(displayIncome.textContent.replace(/[^\d]/g, '')) || 0;
+    botResponse = incomeVal < 30000
+        ? "Consider ways to increase your income, like side gigs or upskilling."
+        : "Good job! Your income is healthy for your expenses.";
+} else if (lowerCaseMessage.includes("suggest") || lowerCaseMessage.includes("advice")) {
+    const incomeVal = parseInt(displayIncome.textContent.replace(/[^\d]/g, '')) || 0;
+    const expensesVal = parseInt(displayFixedExpenses.textContent.replace(/[^\d]/g, '')) || 0;
+    const savingsVal = parseInt(displayCurrentSavings.textContent.replace(/[^\d]/g, '')) || 0;
+    const investVal = parseInt(displayInvestments.textContent.replace(/[^\d]/g, '')) || 0;
+    const taxVal = parseInt(displayTaxDeductions.textContent.replace(/[^\d]/g, '')) || 0;
+
+    if (incomeVal === 0 && expensesVal === 0 && savingsVal === 0) {
+        botResponse = "Please enter your financial details to get personalized suggestions.";
+    } else if (incomeVal > (expensesVal + investVal + taxVal)) {
+        botResponse = "Try to save more. You're spending a bit too much.";
+    } else {
+        botResponse = "Good job! You're managing your finances well.";
+    }
+} else if (lowerCaseMessage.includes("retirement")) {
+    botResponse = "Start planning for retirement early. Consider PPF or NPS for long-term savings.";
+} else if (lowerCaseMessage.includes("insurance")) {
+    botResponse = "Ensure you have adequate health and life insurance coverage.";
+} else if (lowerCaseMessage.includes("emergency fund")) {
+    const savingsVal = parseInt(displayCurrentSavings.textContent.replace(/[^\d]/g, '')) || 0;
+    const expensesVal = parseInt(displayFixedExpenses.textContent.replace(/[^\d]/g, '')) || 1;
+    botResponse = savingsVal < 3 * expensesVal
+        ? "Aim to build an emergency fund covering at least 3–6 months of expenses."
+        : "Great! You have a solid emergency fund.";
+} else if (lowerCaseMessage.includes("financial goals")) {
+    botResponse = "Setting clear financial goals is crucial. Consider short-term and long-term objectives.";
+} else if (lowerCaseMessage.includes("debt")) {
+    const incomeVal = parseInt(displayIncome.textContent.replace(/[^\d]/g, '')) || 1;
+    const expensesVal = parseInt(displayFixedExpenses.textContent.replace(/[^\d]/g, '')) || 0;
+    botResponse = expensesVal > incomeVal * 0.4
+        ? "Try to reduce your debt burden. Focus on high-interest loans first."
+        : "Your debt seems manageable. Keep it up!";
+} else if (lowerCaseMessage.includes("hello") || lowerCaseMessage.includes("hi")) {
+    const currentUserName = displayName.textContent;
+    if (currentUserName && currentUserName !== 'N/A') {
+        botResponse = `Hello ${currentUserName}! How can I help you with your finances today?`;
+    } else {
+        botResponse = "Hello there! How can I help you with your finances today?";
+    }
+} else if (lowerCaseMessage.includes("bye") || lowerCaseMessage.includes("exit")) {
+    botResponse = "Goodbye! Remember, financial discipline is key. See you next time!";
+} else if (lowerCaseMessage.includes("how to earn")) {
+    botResponse = "Consider freelancing, online tutoring, or starting a small business based on your skills.";
+} else if (lowerCaseMessage.includes("thank you") || lowerCaseMessage.includes("thanks")) {
+    botResponse = "You're welcome! Feel free to ask if you have more questions.";
+}
+
+                    addMessage(botResponse, false);
+                }, 500);
+            }
+
+            sendChatBtn.addEventListener('click', function() {
+                const message = chatInput.value.trim();
+                if (message) {
+                    addMessage(message, true);
+                    chatInput.value = '';
+                    handleChatInteraction(message);
+                }
+            });
+
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendChatBtn.click();
+                }
+            });
+
+            audioInputBtn.addEventListener('click', function() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+                if (SpeechRecognition) {
+                    const recognition = new SpeechRecognition();
+                    recognition.interimResults = false; // Only return final results
+                    recognition.lang = 'en-US';
+
+                    recognition.addEventListener('start', () => {
+                        showMessageModal("BuxBot is listening...");
+                    });
+
+                    recognition.addEventListener('result', (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        if (transcript) {
+                            addMessage(transcript, true);
+                            handleChatInteraction(transcript);
+                        }
+                        closeMessageModal();
+                    });
+
+                    recognition.addEventListener('end', () => {
+                        // The modal is closed in the result or error listener, but this ensures it closes if recognition stops for another reason.
+                        if (messageModal.classList.contains('active')) {
+                             closeMessageModal();
+                        }
+                    });
+
+                    recognition.addEventListener('error', (event) => {
+                        let errorMessage = "An unknown error occurred.";
+                        switch (event.error) {
+                            case 'no-speech':
+                                errorMessage = "No speech was detected. Please try again.";
+                                break;
+                            case 'not-allowed':
+                                errorMessage = "Permission to use the microphone was denied.";
+                                break;
+                            case 'audio-capture':
+                                errorMessage = "Audio capture failed.";
+                                break;
+                            case 'service-not-allowed':
+                                errorMessage = "The speech recognition service is not allowed.";
+                                break;
+                        }
+                        showMessageModal(errorMessage);
+                    });
+
+                    recognition.start();
+
+                } else {
+                    showMessageModal("Speech recognition is not supported in this browser. Please use the text input.");
+                }
+            });
+        });
+    </script>
+</body>
+</html>
